@@ -1,0 +1,270 @@
+﻿@{
+    ViewData["Title"] = "Chart Page";
+}
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script> 
+
+<div class="row text-center align-items-center">
+    <div class="col-8">
+        <div id="chart-min-temperature" class="w-100 mb-2 border-dark border-bottom"></div>
+        <div id="chart-highest-wind" class="w-100"></div>
+    </div>
+    <div class="col-4">
+        <h2 id="select-message">Select City in the charts bars.</h2>
+        <div id="last-weather-data" class="w-100" style="height: 50vh; "></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    google.charts.load('current', {  
+        packages: ['corechart']
+    });  
+    google.charts.setOnLoadCallback(LoadChartsData);
+
+    // Chart and Data for MinTemparature and Highest Wind.
+    var minTemperatureChart = null;
+    var minTemperatureData = [];
+    var highestWindChart = null;
+    var highestWindData = [];
+    // Selected city in MinTemparature and Highest Wind.
+    var selectedCityId = null;
+    var selectedCityName = null;
+    
+    // Chart for last weather data. 
+    var lastWeatherDataChart = null;
+
+    
+
+    // Utility function for formating date.
+    function padTo2Digits(num) {
+        return num.toString().padStart(2, '0');
+    }
+
+    function formatDate(dateStr) {
+        var date = new Date(dateStr);
+        var dateString = padTo2Digits(date.getDate());
+        dateString += "." + padTo2Digits(date.getMonth() + 1);
+        dateString += "." + date.getFullYear();
+        dateString += " " + padTo2Digits(date.getHours());
+        dateString += ":" + padTo2Digits(date.getMinutes());
+        dateString += ":" + padTo2Digits(date.getSeconds());
+
+        return dateString;
+    }
+
+    // Load Data
+    function LoadChartsData() {
+        //Get Minimal temperature data
+        $.ajax({
+            url: 'Home/GetMinTemperatures',
+            dataType: "json",
+            type: "GET",
+            error: function (xhr, status, error) {
+                var err = eval("(" + xhr.responseText + ")");
+                toastr.error(err.message);
+            },
+            success: function (data) {
+                MinTemperatureChart(data);
+                return false;
+            }
+        });
+
+        //Get Highest wind data
+        $.ajax({
+            url: 'Home/GetHighestWinds',
+            dataType: "json",
+            type: "GET",
+            error: function (xhr, status, error) {
+                var err = eval("(" + xhr.responseText + ")");
+                toastr.error(err.message);
+            },
+            success: function (data) {
+                HighestWindChart(data);
+                return false;
+            }
+        });
+        return false;
+    }
+
+
+    function GetLastTwoHoursData(cityId) {  
+        $.ajax({  
+  
+            url: 'Home/GetLastTwoHoursData/' + cityId,
+            dataType: "json",  
+            type: "GET",  
+            error: function (xhr, status, error) {  
+                var err = eval("(" + xhr.responseText + ")");  
+                toastr.error(err.message);  
+            },  
+            success: function (data) {  
+                LastWeatherDataChart(data);  
+                return false;  
+            }  
+        });  
+        return false;  
+    }  
+    // Handler for selecting data in MinTemparature chart
+    function onSelectMinTemperature() {
+        // Clear selection for other chart.
+        highestWindChart.setSelection(null);
+
+        var selectedItem = minTemperatureChart.getSelection()[0];
+        // Get the CityID from data.
+        if (selectedItem != null && selectedItem.row >= 0 && selectedItem.row < minTemperatureData.length) {
+            // Get last 2 hours temperature for selected city.
+            selectedCityId = minTemperatureData[selectedItem.row].City.Id;
+            selectedCityName = `${minTemperatureData[selectedItem.row].City.Name} (${minTemperatureData[selectedItem.row].City.Country})`;
+            selectCity(true);
+            GetLastTwoHoursData(selectedCityId);
+
+        } else {
+            // Unslection.
+            selectedCityId = null;
+            selectedCityName = null;
+            selectCity(false);
+
+        }
+    }
+
+    function selectCity(selected) {
+        
+        document.getElementById("select-message").classList.toggle("d-none", selected);;
+        document.getElementById("last-weather-data").classList.toggle("d-none", !selected);
+    }
+
+    // Handler for selecting data in MinTemparature chart
+    function onSelectHighestWind() {
+        // Clear selection for other chart.
+        minTemperatureChart.setSelection(null);
+
+        var selectedItem = highestWindChart.getSelection()[0];
+        // Get the CityID from data.
+        if (selectedItem != null && selectedItem.row >= 0 && selectedItem.row < highestWindData.length) {
+            // Get last 2 hours temperature for selected city.
+            selectedCityId = highestWindData[selectedItem.row].City.Id;
+            selectedCityName = highestWindData[selectedItem.row].City.Name;
+            selectCity(true);
+            GetLastTwoHoursData(selectedCityId);
+
+        } else {
+            // Unslection.
+            selectedCityId = null;
+            selectedCityName = null;
+            selectCity(false);
+       }
+    }
+
+    function MinTemperatureChart(data) {
+        var dataArray = [
+            ['City', 'Min Temperature', { role: 'annotation' }]
+        ];
+        minTemperatureData = [];
+        data.forEach((item) => {
+            dataArray.push([item.City.Name + " (" + item.City.Country + ")", item.Temperature, item.Temperature + "°C (" + formatDate(item.LastUpdateTime) + ")"]);
+            minTemperatureData.push(item);
+        });
+        var data = google.visualization.arrayToDataTable(dataArray);
+
+        var options = {
+            title: 'Minimum Temperature Chart',
+            chartArea: { width:"50%"},
+            width: "100%",
+            height: 450,
+            bar: { groupWidth: "95%" },
+            legend: { position: "none" },
+        };
+        if (minTemperatureChart == null)
+        {
+            minTemperatureChart = new google.visualization.BarChart(document.getElementById('chart-min-temperature'));
+            // Add listener for 'select' event.
+            google.visualization.events.addListener(minTemperatureChart, 'select', onSelectMinTemperature);
+        }
+
+     
+        minTemperatureChart.draw(data, options);
+
+        return false;
+    }
+
+    // Highest winds chart
+    function HighestWindChart(data) {
+        var dataArray = [
+            ['City', 'Highest Wind', { role: 'annotation' }]
+        ];
+        highestWindData = [];
+        data.forEach((item) => {
+            dataArray.push([item.City.Name + " (" + item.City.Country + ")", item.Wind, item.Wind + "km/h (" + formatDate(item.LastUpdateTime) + ")"]);
+            highestWindData.push(item);
+        });
+        var data = google.visualization.arrayToDataTable(dataArray);
+
+        var options = {
+            title: 'Highest Wind Chart',
+            chartArea: { width: "50%" },
+            width: "100%",
+            height: 450,
+            bar: { groupWidth: "95%" },
+            legend: { position: "none" }
+        };
+        if (highestWindChart == null) {
+            highestWindChart = new google.visualization.BarChart(document.getElementById('chart-highest-wind'));
+            // Add listener for 'select' event.
+            google.visualization.events.addListener(highestWindChart, 'select', onSelectHighestWind);
+
+        }
+        highestWindChart.draw(data, options);
+        return false;
+    }
+
+    // Last weather data chart 
+    function LastWeatherDataChart(data) {
+        var dataArray = [
+            ['LastUpdateTime', 'Temperature', 'Wind']
+        ];
+        data.forEach((item) => {
+            dataArray.push([new Date(item.LastUpdateTime), item.Temperature, item.Wind]);
+
+        });
+        var chartData = google.visualization.arrayToDataTable(dataArray);
+
+        var options = {
+            title: selectedCityName != null ? 'Last 2 hours wether data for ' + selectedCityName : 'Select city in charts',
+            chartArea: { width: "60%" },
+            width: "100%",
+            series: {
+                      0: {targetAxisIndex: 0},
+                      1: {targetAxisIndex: 1}
+                    },
+            vAxes: {
+                      // Adds titles to each axis.
+                      0: { title: 'Temperature (°C)' },
+                      1: {title: 'Wind speed (km/h)'}
+            },
+            height: 600,
+            trendlines: {
+                0: {
+                    type: 'exponential',
+                    visibleInLegend: true,
+                },
+                1: {
+                    type: 'exponential',
+                    visibleInLegend: true,
+                },
+            },
+            legend: {
+                maxLines: 2
+            }
+
+        };
+
+        if (lastWeatherDataChart == null) {
+            // Create last weather data chart.
+            lastWeatherDataChart = new google.visualization.ScatterChart(document.getElementById('last-weather-data'));
+        }
+
+        lastWeatherDataChart.draw(chartData, options);
+
+        return false;
+    }
+
+</script>
