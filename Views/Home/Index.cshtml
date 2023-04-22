@@ -5,6 +5,7 @@
 
 <div class="row text-center align-items-center">
     <div class="col-8">
+        <h2 id="empty-database" class="d-none">Data base is empty. Please refresh after a minute.</h2>
         <div id="chart-min-temperature" class="w-100 mb-2 border-dark border-bottom"></div>
         <div id="chart-highest-wind" class="w-100"></div>
     </div>
@@ -126,9 +127,14 @@
         }
     }
 
-    function selectCity(selected) {
-        
-        document.getElementById("select-message").classList.toggle("d-none", selected);;
+    // Display Empty database message
+    function checkEmptyDataBase() {
+        document.getElementById("empty-database").classList.remove("d-none");
+    }
+
+    // Manage Last weather data chart display
+    function selectCity(selected) {        
+        document.getElementById("select-message").classList.toggle("d-none", selected);
         document.getElementById("last-weather-data").classList.toggle("d-none", !selected);
     }
 
@@ -155,6 +161,11 @@
     }
 
     function MinTemperatureChart(data) {
+        if(data.length == 0) {
+            checkEmptyDataBase();
+            return;
+        }
+
         var dataArray = [
             ['City', 'Min Temperature', { role: 'annotation' }]
         ];
@@ -188,6 +199,11 @@
 
     // Highest winds chart
     function HighestWindChart(data) {
+        if (data.length == 0) {
+            checkEmptyDataBase();
+            return;
+        }
+
         var dataArray = [
             ['City', 'Highest Wind', { role: 'annotation' }]
         ];
